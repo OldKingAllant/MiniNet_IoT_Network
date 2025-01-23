@@ -1,4 +1,2 @@
-H1/temp_sensor_stop
 Connected
-Received disconnect command
-DISCONNECTED
+Received start command

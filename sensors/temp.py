@@ -1,62 +1,36 @@
 import paho.mqtt.client as mqtt
 
-import os
-import sys
 import json
 import time
 
-import logging
+from sensor_class import Sensor
 
-logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
-
-if os.environ.get('MQTT_ADDRESS') == None or os.environ.get('MQTT_PORT') == None:
-    print('Env. variables for MQTT do not exist', flush=True, file=sys.stdout)
-    exit(1)
-
-if os.environ.get('SERVER_ID') == None:
-    print('Env. variables SERVER_ID does not exist', flush=True, file=sys.stdout)
-    exit(1)
-
-if os.environ.get('MODULE_NAME') == None:
-    print('Env. variables MODULE_NAME does not exist', flush=True, file=sys.stdout)
-    exit(1)
-
-module_name = os.environ['MODULE_NAME']
-server_id = os.environ.get('SERVER_ID')
-mqtt_client_id = f'{server_id}_{module_name}'
-mqtt_topic = f'{server_id}/{module_name}'
-mqtt_control_topic = f'{server_id}/{module_name}_stop'
-
-log_file = open(f'./logs/{server_id}_{module_name}_log.txt', 'w')
-
-print(mqtt_control_topic, file=log_file)
+sensor = Sensor()
 
 running: bool = True
-
-def on_connect(client: mqtt.Client, userdata, flags, reason_code):
-    print('Connected', flush=True, file=log_file)
-    client.subscribe(mqtt_control_topic)
+stop: bool = False
 
 def on_message(client, userdata, msg: mqtt.MQTTMessage):
-    global running, log_file
-    if msg.topic == mqtt_control_topic and str(msg.payload.decode('utf-8')).upper() == "STOP":
-        print("Received disconnect command", file=log_file)
+    global running, sensor, stop
+    message = str(msg.payload.decode('utf-8')).upper()
+    if message == "STOP":
+        print("Received stop command", file=sensor.log_file, flush=True)
+        stop = True
+    if message == "START":
+        print("Received start command", file=sensor.log_file, flush=True)
+        stop = False
+    if message == "DISCONNECT":
+        print("Received disconnect command", file=sensor.log_file)
         running = False
 
-client = mqtt.Client(mqtt_client_id, clean_session=True)
-
-client.on_connect = on_connect
-client.on_message = on_message
-client.connect(os.environ['MQTT_ADDRESS'], int(os.environ['MQTT_PORT']))
-
-client.loop_start()
+sensor.set_on_message(on_message)
+sensor.connect()
+sensor.start()
 
 while running:
     time.sleep(5)
-    client.publish(mqtt_topic, json.dumps({'new_temp': 10.0}))
+    if not stop:
+        sensor.send(json.dumps({'new_temp': 10.0}))
 
-client.loop_stop()
-client.disconnect()
-
-print("DISCONNECTED", file=log_file)
+sensor.stop()
+sensor.disconnect()

@@ -1,0 +1,9 @@
+Host H1
+Host H2
+Host H3
+Switch S1
+Link S1 H1
+Link S1 H2
+Link S1 H3
+Server SERVER
+Link S1 SERVER

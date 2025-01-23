@@ -1,0 +1,20 @@
+ * Serving Flask app './server/main_server.py' (lazy loading)
+ * Environment: production
+   WARNING: This is a development server. Do not use it in a production deployment.
+   Use a production WSGI server instead.
+ * Debug mode: off
+ * Running on all addresses.
+   WARNING: This is a development server. Do not use it in a production deployment.
+ * Running on http://10.0.0.4:5000/ (Press CTRL+C to quit)
+10.0.0.5 - - [23/Jan/2025 11:03:02] "GET /heartbeat HTTP/1.1" 200 -
+[2025-01-23 11:03:02,717] INFO in main_server: Updated devices
+10.0.0.5 - - [23/Jan/2025 11:03:02] "POST /devices HTTP/1.1" 200 -
+10.0.0.5 - - [23/Jan/2025 11:03:02] "DELETE /devices?devs=%5B%22SERVER%22%5D HTTP/1.1" 200 -
+[2025-01-23 11:03:02,787] INFO in main_server: Added new sensor of type temp to H1, with instance id temp_sensor
+10.0.0.5 - - [23/Jan/2025 11:03:02] "POST /dev/H1/sensors HTTP/1.1" 200 -
+[2025-01-23 11:03:02,817] INFO in main_server: Added new sensor of type temp to H2, with instance id temp_sensor
+10.0.0.5 - - [23/Jan/2025 11:03:02] "POST /dev/H2/sensors HTTP/1.1" 200 -
+10.0.0.5 - - [23/Jan/2025 11:04:06] "GET /dev/sensors/get_all HTTP/1.1" 200 -
+[2025-01-23 11:04:06,374] INFO in main_server: H1/temp_sensor_stop
+[2025-01-23 11:04:06,399] INFO in main_server: H2/temp_sensor_stop
+10.0.0.5 - - [23/Jan/2025 11:04:06] "DELETE /dev/sensors/delete_all HTTP/1.1" 200 -

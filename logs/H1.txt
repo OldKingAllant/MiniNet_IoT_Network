@@ -6,7 +6,10 @@
  * Running on all addresses.
    WARNING: This is a development server. Do not use it in a production deployment.
  * Running on http://10.0.0.1:5000/ (Press CTRL+C to quit)
-10.0.0.4 - - [23/Jan/2025 15:00:07] "POST /sensors HTTP/1.1" 200 -
-10.0.0.4 - - [23/Jan/2025 15:00:12] "GET /sensors/temp_sensor/exists HTTP/1.1" 200 -
-10.0.0.4 - - [23/Jan/2025 15:00:35] "GET /sensors/get_all HTTP/1.1" 200 -
-10.0.0.4 - - [23/Jan/2025 15:00:35] "DELETE /sensors/delete_all HTTP/1.1" 200 -
+10.0.0.4 - - [24/Jan/2025 15:03:26] "POST /sensors HTTP/1.1" 200 -
+10.0.0.4 - - [24/Jan/2025 15:03:43] "GET /sensors/temp_sensor/exists HTTP/1.1" 200 -
+10.0.0.4 - - [24/Jan/2025 15:03:43] "GET /sensors/temp_sensor/exists HTTP/1.1" 200 -
+10.0.0.4 - - [24/Jan/2025 15:03:43] "GET /sensors/get_all HTTP/1.1" 200 -
+10.0.0.4 - - [24/Jan/2025 15:03:43] "GET /actuators/get_all HTTP/1.1" 200 -
+10.0.0.4 - - [24/Jan/2025 15:03:43] "DELETE /sensors/delete_all HTTP/1.1" 200 -
+10.0.0.4 - - [24/Jan/2025 15:03:43] "DELETE /actuators/delete_all HTTP/1.1" 200 -

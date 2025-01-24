@@ -1,0 +1,6 @@
+POST   /controllers/add controller_id module     -> {}, 200
+DELETE /controllers/remove controller_id         -> {}, 200
+DELETE /controllers/remove_all  -> {}, 200
+GET  /controllers/get_all -> {"controllers": [...]}, 200
+
+

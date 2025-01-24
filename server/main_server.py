@@ -4,12 +4,15 @@ from flask.app import request
 from flask_mqtt import Mqtt
 from flask_mqtt import MQTT_ERR_SUCCESS
 
+from paho.mqtt.client import MQTTMessage
+
 import typing
 import json
 import logging
 import sys
 import os
 import traceback
+import copy
 
 import requests
 
@@ -39,9 +42,28 @@ mqtt = Mqtt(app)
 
 devices: typing.Dict[str, str] = {}
 
+curr_statuses: typing.Dict[str, str] = {}
+sensors_data: typing.Dict[str, typing.List[str]] = {}
+
 @mqtt.on_connect()
 def handle_connect(client, userdata, flags, rc):
     app.logger.info(f'Connected to Mqtt broker')
+
+@mqtt.on_message()
+def handle_publish(client, userdata, message: MQTTMessage):
+    global curr_statuses
+    payload_msg = message.payload.decode()
+    topic = message.topic
+    if topic.find('status') != -1:
+        #This is a status message
+        curr_statuses[message.topic] = payload_msg
+        return
+    #This is a data message
+    if sensors_data.get(message.topic) == None:
+        sensors_data[message.topic] = [payload_msg]
+    else:
+        sensors_data[message.topic].append(payload_msg)
+    return
 
 @app.route("/heartbeat")
 def heartbeat():
@@ -122,6 +144,12 @@ def add_sensor(id):
 
     if res.status_code != 200:
         return res.json(), 400
+    
+    mqtt_data_topic = f'{id}/{instance_id}'
+    mqtt_status_topic = f'{id}/{instance_id}_status'
+
+    mqtt.subscribe(mqtt_data_topic)
+    mqtt.subscribe(mqtt_status_topic)
     
     app.logger.info(f'Added new sensor of type {py_module} to {id}, with instance id {instance_id}')
     return {'status': 'OK'}, 200
@@ -250,25 +278,192 @@ def add_actuator(host_id: str):
     if res.status_code != 200:
         return res.json(), 400
     
+    mqtt_status_topic = f'{host_id}/{instance_id}_status'
+    mqtt.subscribe(mqtt_status_topic)
+    
     app.logger.info(f'Added new actuator of type {py_module} to {host_id}, with instance id {instance_id}')
     return {'status': 'OK'}, 200
 
 
 @app.get("/dev/actuators/get_all")
-def get_all_actuators(host_id: str):
-    return {'status': 'E_OK'}, 200
+def get_all_actuators():
+    actuator_list: typing.Dict[str, typing.List] = {}
+    for host_id, host in devices.items():
+        actuator_list[host_id] = []
+        sensor_url = f'http://{host}:5000/actuators/get_all'
+        res = requests.get(sensor_url)
+        if res.status_code != 200:
+            return res.json(), 400
+        actuator_list[host_id].extend(res.json()['actuators'])
+    return {'status': 'E_OK', 'actuators': actuator_list}, 200
 
 @app.delete("/dev/actuators/delete_all")
-def remove_all_actuators(host_id: str):
+def remove_all_actuators():
+    for _, host in devices.items():
+        actuator_url = f'http://{host}:5000/actuators/delete_all'
+        res = requests.delete(actuator_url)
+        if res.status_code != 200:
+            return res.json(), 400
+    mqtt.unsubscribe_all()
     return {'status': 'E_OK'}, 200
 
 @app.put("/dev/<string:host_id>/actuator_stop")
 def stop_actuator(host_id: str):
+    if request.headers.get('Content-Type') != 'application/json':
+        app.logger.error(f'Invalid PUT /dev/<id>/actuator_stop content')
+        return {'status': 'E_CONTENT'}, 400
+    if devices.get(host_id) == None:
+        return {'status': 'E_HOST'}, 400
+    
+    payload = request.get_json()
+
+    if type(payload) != type({}):
+        return {'status': 'E_LIST'}, 400
+    if payload.get('actuator_id') == None:
+        return {'status': 'E_MISSING_ID'}, 400
+    
+    host_url = f'http://{devices[host_id]}:5000/actuators/{payload["actuator_id"]}/exists'
+    res = requests.get(host_url)
+
+    if res.status_code != 200:
+        return res.json(), 400
+    
+    if res.json()["status"] != 'E_FOUND':
+        return {'status': 'E_INV_ID'}, 400
+    
+    mqtt_control_topic = f'{host_id}/{payload["actuator_id"]}_control'
+    app.logger.info(mqtt_control_topic)
+    result, _ = mqtt.publish(mqtt_control_topic, "STOP", qos=1)
+    if result != MQTT_ERR_SUCCESS:
+        app.logger.error(f'Publish to {mqtt_control_topic} failed')
+        return {'status': 'E_FAIL'}, 400
     return {'status': 'E_OK'}, 200
 
 @app.put("/dev/<string:host_id>/actuator_start")
 def start_actuator(host_id: str):
+    if request.headers.get('Content-Type') != 'application/json':
+        app.logger.error(f'Invalid PUT /dev/<id>/actuator_start content')
+        return {'status': 'E_CONTENT'}, 400
+    if devices.get(host_id) == None:
+        return {'status': 'E_HOST'}, 400
+    
+    payload = request.get_json()
+
+    if type(payload) != type({}):
+        return {'status': 'E_LIST'}, 400
+    if payload.get('actuator_id') == None:
+        return {'status': 'E_MISSING_ID'}, 400
+    
+    host_url = f'http://{devices[host_id]}:5000/actuators/{payload["actuator_id"]}/exists'
+    res = requests.get(host_url)
+
+    if res.status_code != 200:
+        return res.json(), 400
+    
+    if res.json()["status"] != 'E_FOUND':
+        return {'status': 'E_INV_ID'}, 400
+    
+    mqtt_control_topic = f'{host_id}/{payload["actuator_id"]}_control'
+    app.logger.info(mqtt_control_topic)
+    result, _ = mqtt.publish(mqtt_control_topic, "START", qos=1)
+    if result != MQTT_ERR_SUCCESS:
+        app.logger.error(f'Publish to {mqtt_control_topic} failed')
+        return {'status': 'E_FAIL'}, 400
     return {'status': 'E_OK'}, 200
+
+###########################################################################################
+###########################################################################################
+
+@app.get("/dev/<string:host_id>/sensor_status")
+def get_sensor_status(host_id: str):
+    if request.headers.get('Content-Type') != 'application/json':
+        app.logger.error(f'Invalid GET /dev/<id>/sensor_status content')
+        return {'status': 'E_CONTENT'}, 400
+    if devices.get(host_id) == None:
+        return {'status': 'E_HOST'}, 400
+    
+    payload = request.get_json()
+
+    if type(payload) != type({}):
+        return {'status': 'E_LIST'}, 400
+    if payload.get('sensor_id') == None:
+        return {'status': 'E_MISSING_ID'}, 400
+    
+    host_url = f'http://{devices[host_id]}:5000/sensors/{payload["sensor_id"]}/exists'
+    res = requests.get(host_url)
+
+    if res.status_code != 200:
+        return res.json(), 400
+    
+    if res.json()["status"] != 'E_FOUND':
+        return {'status': 'E_INV_ID'}, 400
+    
+    topic_name = f'{host_id}/{payload["sensor_id"]}_status'
+    if curr_statuses.get(topic_name) == None:
+        return {'status': 'E_NOT_AVAIL'}, 400
+    
+    return {'status': 'E_OK', 'sensor_status': curr_statuses[topic_name]}, 200
+
+@app.get("/dev/<string:host_id>/actuator_status")
+def get_actuator_status(host_id: str):
+    if request.headers.get('Content-Type') != 'application/json':
+        app.logger.error(f'Invalid GET /dev/<id>/actuator_status content')
+        return {'status': 'E_CONTENT'}, 400
+    if devices.get(host_id) == None:
+        return {'status': 'E_HOST'}, 400
+    
+    payload = request.get_json()
+
+    if type(payload) != type({}):
+        return {'status': 'E_LIST'}, 400
+    if payload.get('actuator_id') == None:
+        return {'status': 'E_MISSING_ID'}, 400
+    
+    host_url = f'http://{devices[host_id]}:5000/actuators/{payload["actuator_id"]}/exists'
+    res = requests.get(host_url)
+
+    if res.status_code != 200:
+        return res.json(), 400
+    
+    if res.json()["status"] != 'E_FOUND':
+        return {'status': 'E_INV_ID'}, 400
+    
+    topic_name = f'{host_id}/{payload["actuator_id"]}_status'
+    if curr_statuses.get(topic_name) == None:
+        return {'status': 'E_NOT_AVAIL'}, 400
+    
+    return {'status': 'E_OK', 'actuator_status': curr_statuses[topic_name]}, 200
+
+@app.get("/dev/<string:host_id>/sensor_data")
+def get_sensor_data(host_id: str):
+    if request.headers.get('Content-Type') != 'application/json':
+        app.logger.error(f'Invalid GET /dev/<id>/sensor_data content')
+        return {'status': 'E_CONTENT'}, 400
+    if devices.get(host_id) == None:
+        return {'status': 'E_HOST'}, 400
+    
+    payload = request.get_json()
+
+    if type(payload) != type({}):
+        return {'status': 'E_LIST'}, 400
+    if payload.get('sensor_id') == None:
+        return {'status': 'E_MISSING_ID'}, 400
+    
+    host_url = f'http://{devices[host_id]}:5000/sensors/{payload["sensor_id"]}/exists'
+    res = requests.get(host_url)
+
+    if res.status_code != 200:
+        return res.json(), 400
+    
+    if res.json()["status"] != 'E_FOUND':
+        return {'status': 'E_INV_ID'}, 400
+    
+    topic_name = f'{host_id}/{payload["sensor_id"]}'
+    if sensors_data.get(topic_name) == None:
+        return {'status': 'E_NOT_AVAIL'}, 400
+    data = copy.deepcopy( sensors_data[topic_name] )
+    sensors_data[topic_name].clear()
+    return {'status': 'E_OK', 'sensor_data': data}, 200
 
 ###########################################################################################
 ###########################################################################################
@@ -283,6 +478,6 @@ def shutdown():
 
 @app.errorhandler(Exception)
 def handle_exception(exc):
-    backtrace = str("\n").join( traceback.format_exception(exc) )
+    backtrace = traceback.format_exc()
     app.logger.error(backtrace)
     return {'status': 'E_INTERNAL_ERROR'}, 500

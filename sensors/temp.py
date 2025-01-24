@@ -29,8 +29,9 @@ sensor.start()
 
 while running:
     time.sleep(5)
+    sensor.update_status(json.dumps({'is_on': not stop}))
     if not stop:
-        sensor.send(json.dumps({'new_temp': 10.0}))
+        sensor.send_data(json.dumps({'new_temp': 10.0}))
 
 sensor.stop()
 sensor.disconnect()

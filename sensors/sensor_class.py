@@ -22,6 +22,7 @@ class Sensor:
         self.mqtt_client_id = f'{self.server_id}_{self.module_name}'
         self.mqtt_topic = f'{self.server_id}/{self.module_name}'
         self.mqtt_control_topic = f'{self.server_id}/{self.module_name}_control'
+        self.mqtt_status_topic = f'{self.server_id}/{self.module_name}_status'
         self.log_file = open(f'./logs/{self.server_id}_{self.module_name}_log.txt', 'w')
         self.client = mqtt.Client(self.mqtt_client_id, clean_session=True)
         self.connected = False
@@ -54,9 +55,13 @@ class Sensor:
             raise Exception("Not connected to broker")
         self.client.disconnect()
 
-    def send(self, data):
+    def send_data(self, data):
         if not self.connected:
             raise Exception("Not connected to broker")
         self.client.publish(self.mqtt_topic, data)
 
+    def update_status(self, status):
+        if not self.connected:
+            raise Exception("Not connected to broker")
+        self.client.publish(self.mqtt_status_topic, status)
     

@@ -14,6 +14,8 @@ import os
 import traceback
 import copy
 
+from subprocess import Popen
+
 import requests
 
 app = Flask(__name__)
@@ -464,6 +466,72 @@ def get_sensor_data(host_id: str):
     data = copy.deepcopy( sensors_data[topic_name] )
     sensors_data[topic_name].clear()
     return {'status': 'E_OK', 'sensor_data': data}, 200
+
+###########################################################################################
+###########################################################################################
+
+controllers: typing.Dict[str, Popen] = {}
+
+@app.post("/controllers/add")
+def add_controller():
+    if request.headers.get('Content-Type') != 'application/json':
+        app.logger.error(f'Invalid POST /controllers/add content')
+        return {'status': 'E_CONTENT'}, 400
+    
+    payload = request.get_json()
+
+    if type(payload) != type({}):
+        return {'status': 'E_LIST'}, 400
+    if payload.get('module') == None:
+        return {'status': 'E_MODULE'}, 400
+    if payload.get('instance_id') == None:
+        return {'status': 'E_MISSING_ID'}, 400
+    
+    if controllers.get(payload['instance_id']) != None:
+        return {'status': 'E_EXISTS'}, 400
+    
+    py_module = payload['module']
+    if not os.path.exists(f'./controllers/{py_module}.py'):
+        return {'status': 'E_MODULE'}, 400
+    
+    new_env = {}
+    new_env.update(os.environ)
+    new_env['MODULE_NAME'] = payload['instance_id']
+    controllers[payload['instance_id']] = Popen(f'python3 ./controllers/{py_module}.py', shell=True, env=new_env)
+    return {'status': 'E_OK'}, 200
+
+@app.delete("/controllers/remove")
+def remove_controller():
+    if request.headers.get('Content-Type') != 'application/json':
+        app.logger.error(f'Invalid DELETE /controllers/remove content')
+        return {'status': 'E_CONTENT'}, 400
+    
+    payload = request.get_json()
+
+    if type(payload) != type({}):
+        return {'status': 'E_LIST'}, 400
+    if payload.get('instance_id') == None:
+        return {'status': 'E_MISSING_ID'}, 400
+    
+    if controllers.get(payload['instance_id']) == None:
+        return {'status': 'E_NOT_EXIST'}, 400
+    
+    controllers[payload['instance_id']].terminate()
+    del controllers[payload['instance_id']]
+    return {'status': 'E_OK'}, 200
+
+@app.delete("/controllers/remove_all")
+def remove_all_controllers():
+    for controller in controllers.values():
+        controller.terminate()
+    controllers.clear()
+    return {'status': 'E_OK'}, 200
+
+@app.get("/controllers/get_all")
+def get_all_controllers():
+    names = [name for name in controllers.keys()]
+    return {'status': 'E_OK', 'controllers': names}, 200
+
 
 ###########################################################################################
 ###########################################################################################

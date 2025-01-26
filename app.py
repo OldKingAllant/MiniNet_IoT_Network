@@ -29,32 +29,19 @@ def waitfor_beat(server_url: str, max_attempts: int):
 if __name__ == '__main__':
     use_remote_controller = False
 
-    if len(sys.argv) != 4:
-        if len(sys.argv) == 5 and sys.argv[4] == 'remote':
+    if len(sys.argv) != 2:
+        if len(sys.argv) == 3 and sys.argv[2] == 'remote':
             use_remote_controller = True
             print('Using remote controller')
         else:
-            print("usage: app.py <topology file> <broker_addr> <broker_port> [remote]")
+            print("usage: app.py <topology file> [remote]")
             exit(1)
     topo = parse_file(sys.argv[1])
 
-    try:
-        socket.inet_aton(sys.argv[2])
-    except:
-        print("Invalid broker address, expected valid IPv4")
-        exit(1)
-
-    broker_port = 0
-    try:
-        broker_port = int(sys.argv[3])
-        if broker_port < 0 or broker_port >= 2**16:
-            raise Exception()
-    except:
-        print("Invalid broker port")
-        exit(1)
+    BROKER_PORT = 1883
 
     if topo.server == None:
-        print("Missing server!")
+        print("Missing server in topology!")
         exit(1)
 
     mininet_topo = Topology(topo)
@@ -68,14 +55,14 @@ if __name__ == '__main__':
             net = Mininet(mininet_topo)
         else:
             net = Mininet(mininet_topo, controller=lambda name: RemoteController(name, ip='127.0.0.1', port=6633))
+        
         mininet_topo.create_ip_map(net)
-        net.addNAT().configDefault()
 
-        #if use_remote_controller:
-        #    net.addController('c0', controller=RemoteController, ip='127.0.0.1', port=6633)
-
+        net.addNAT(name='nat0').configDefault()
         net.start()
         net.waitConnected()
+
+        BROKER_ADDRESS = net.getNodeByName('nat0').IP()
 
         server_node: Host = net.getNodeByName(topo.server.name)
 
@@ -88,7 +75,7 @@ if __name__ == '__main__':
                 print("Ping failed")
                 exit(1)
 
-        broker_exports = f'export MQTT_ADDRESS={sys.argv[2]} && export MQTT_PORT={broker_port}'
+        broker_exports = f'export MQTT_ADDRESS={BROKER_ADDRESS} && export MQTT_PORT={BROKER_PORT}'
         main_server_cmd = f'{broker_exports} && export FLASK_APP=./server/main_server.py && flask run --host=0.0.0.0 &> ./logs/iot_server.txt'
 
         server_url = f'http://{server_node.IP()}:5000'

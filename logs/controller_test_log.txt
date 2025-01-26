@@ -1,3 +1,0 @@
-Connected
-H1/temp_sensor -> {"new_temp": 10.0}
-H1/temp_sensor -> {"new_temp": 10.0}

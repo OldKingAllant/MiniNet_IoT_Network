@@ -2,6 +2,7 @@ import paho.mqtt.client as mqtt
 
 import os
 import sys
+import traceback
 
 import typing
 
@@ -33,14 +34,20 @@ class Controller:
         self.client.connect(os.environ['MQTT_ADDRESS'], int(os.environ['MQTT_PORT']))
         self.connected = True
 
-    def send_control(self, sensor: str, message: typing.Any):
+    def send_control(self, actuator: str, message: typing.Any):
+        control_topic = f'{actuator}_control'
+        self.client.publish(control_topic, message)
         return
 
     def loop(self, message_callback: typing.Callable[[typing.Any, mqtt.MQTTMessage], typing.Any]):
         self.message_callback = message_callback
 
         def on_message(client: mqtt.Client, controller: Controller, msg: mqtt.MQTTMessage):
-            controller.message_callback(controller, msg)
+            try:
+                controller.message_callback(controller, msg)
+            except:
+                print('Exception', flush=True, file=controller.log_file)
+                print(traceback.format_exc(), flush=True, file=controller.log_file)
             return
         
         self.client.user_data_set(self)

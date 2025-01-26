@@ -49,7 +49,7 @@ If you have installed everything correctly, you should now see a Qt window
 - **app_detail/**  Detail modules for the GUI app
 - **server/**      Scripts for the flask servers
 - **topo/**        Modules for loading topology from file
-- **app.py/**      The main GUI application
+- **app.py**      The main GUI application
 
 # How does it work?
 

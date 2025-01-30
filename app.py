@@ -2,19 +2,20 @@ import sys
 from topo.topo_read import parse_file
 from topo.mininet_topo import Topology
 from app_detail.server_requests import *
+from app_detail.ryu_requests import *
 
 from mininet.net import Mininet
 from mininet.cli import CLI
-from mininet.node import Host, RemoteController
+from mininet.node import Host, RemoteController, Node
 
 import traceback
-import json
-import typing
 import time
-import socket
 import os
 
 import requests
+
+CONTROLLER_IP = '127.0.0.1'
+CONTROLLER_HTTP_PORT = 8080
 
 def waitfor_beat(server_url: str, max_attempts: int):
     while max_attempts > 0:
@@ -54,7 +55,7 @@ if __name__ == '__main__':
         if not use_remote_controller:
             net = Mininet(mininet_topo)
         else:
-            net = Mininet(mininet_topo, controller=lambda name: RemoteController(name, ip='127.0.0.1', port=6633))
+            net = Mininet(mininet_topo, controller=lambda name: RemoteController(name, ip=CONTROLLER_IP, port=6633))
         
         mininet_topo.create_ip_map(net)
 
@@ -62,9 +63,15 @@ if __name__ == '__main__':
         net.start()
         net.waitConnected()
 
-        BROKER_ADDRESS = net.getNodeByName('nat0').IP()
-
+        nat_node: Node = net.getNodeByName('nat0')
         server_node: Host = net.getNodeByName(topo.server.name)
+
+        BROKER_ADDRESS = nat_node.IP()
+
+        controller_url = f'http://{CONTROLLER_IP}:{CONTROLLER_HTTP_PORT}'
+
+        send_server_ip(controller_url, server_node.IP())
+        send_nat_ip(controller_url, BROKER_ADDRESS)
 
         print("Testing whether server can reach all hosts")
     

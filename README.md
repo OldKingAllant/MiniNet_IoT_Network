@@ -35,7 +35,7 @@ Now you should have all the necessary dependencies to run the project!
 
 1. Open 3 different shells
 2. In the first, run mosquitto using the same configuration presented in the file 'mosquitto.conf'
-3. In the second, start the ryu controller using 'ryu run ./ryu_controller/ryu_app.py'
+3. In the second, start the ryu controller using 'ryu run ./ryu_controller/new_ryu_app.py'
 4. In the last shell, you can run the application itself using 'sudo python3 app.py test_topo.txt remote'
 
 If you have installed everything correctly, you should now see a Qt window

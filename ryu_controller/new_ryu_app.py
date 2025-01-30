@@ -207,7 +207,7 @@ class CustomSwitch(app_manager.RyuApp):
             #logger.info(f'Controller received packet even though flow rule already exists')
             logger.info(f'Add flow {switch_in_port} {_eth.src} -> {_eth.dst}')
             match_rule = ofp_parser.OFPMatch(in_port=switch_in_port, dl_dst=_eth.dst, dl_src=_eth.src)
-            self.add_flow(dp, match_rule, actions, priority=1, cookie=self.last_cookie, timeout=10)
+            self.add_flow(dp, match_rule, actions, priority=1, cookie=self.last_cookie)
             self.flow_table[dp.id][f'{switch_in_port}-{_eth.src}-{_eth.dst}'] = self.last_cookie
             self.last_cookie += 1
 

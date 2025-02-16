@@ -107,7 +107,7 @@ def get_actuator_status(server_url: str, host_id: str, actuator_id: str):
     if res.status_code != 200:
         print(f'Actuator get status failed: {res.json()}')
         return None
-    return res.json()['actuator_status']
+    return json.loads(res.json()['actuator_status'])
 
 def get_sensor_data(server_url: str, host_id: str, sensor_id: str):
     data = json.dumps({'sensor_id': sensor_id})

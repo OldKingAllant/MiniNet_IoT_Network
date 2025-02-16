@@ -2,6 +2,7 @@ import paho.mqtt.client as mqtt
 
 import json
 import time
+import datetime
 
 from sensor_class import Sensor
 
@@ -31,7 +32,7 @@ while running:
     time.sleep(5)
     sensor.update_status(json.dumps({'is_on': not stop}))
     if not stop:
-        sensor.send_data(json.dumps({'new_temp': 10.0}))
+        sensor.send_data(json.dumps({'new_temp': 10.0, 'timestamp': datetime.datetime.now().timestamp()}))
 
 sensor.stop()
 sensor.disconnect()

@@ -4,9 +4,13 @@ from topo.mininet_topo import Topology
 from app_detail.server_requests import *
 from app_detail.ryu_requests import *
 
+from gui.gui_main import MainWindow
+
 from mininet.net import Mininet
 from mininet.cli import CLI
 from mininet.node import Host, RemoteController, Node
+
+from PyQt5.QtWidgets import QApplication
 
 import traceback
 import time
@@ -70,8 +74,9 @@ if __name__ == '__main__':
 
         controller_url = f'http://{CONTROLLER_IP}:{CONTROLLER_HTTP_PORT}'
 
-        send_server_ip(controller_url, server_node.IP())
-        send_nat_ip(controller_url, BROKER_ADDRESS)
+        if use_remote_controller:
+            send_server_ip(controller_url, server_node.IP())
+            send_nat_ip(controller_url, BROKER_ADDRESS)
 
         print("Testing whether server can reach all hosts")
     
@@ -106,16 +111,27 @@ if __name__ == '__main__':
         publish_hosts(server_url, mininet_topo.ip_map)
         remove_hosts(server_url, [topo.server.name])
 
-        add_sensor(server_url, 'H1', 'temp', 'temp_sensor')
-        add_sensor(server_url, 'H2', 'temp', 'temp_sensor')
-        add_actuator(server_url, 'H3', 'heater', 'h3_heater')
+        add_sensor(server_url, 'H1', 'temp', 'first_room_temp')
+        add_sensor(server_url, 'H2', 'temp', 'second_room_temp')
+        add_sensor(server_url, 'H3', 'temp', 'third_room_temp')
+        add_actuator(server_url, 'H2', 'heater', 'second_room_heater')
         add_controller(server_url, 'test_controller', 'test')
         
-        CLI(net)
+        app = QApplication(sys.argv)
+        sensors = [('H1', 'first_room_temp'), ('H2', 'second_room_temp'), ('H3', 'third_room_temp')]
+        heaters = [('H2', 'second_room_heater')]
+        connection_list = [(0, 0)]
+        window = MainWindow(sensor_list=sensors, 
+                            open_sensors=[0, 2], 
+                            heaters=heaters, 
+                            connection_list=connection_list,
+                            server_url=server_url)
+        window.show()
+        app.exec_()
 
         print("Shutting down servers...")
 
-        print(get_actuator_status(server_url, 'H3', 'h3_heater'))
+        print(get_actuator_status(server_url, 'H2', 'second_room_heater'))
 
         remove_all_sensors(server_url)
         remove_all_actuators(server_url)

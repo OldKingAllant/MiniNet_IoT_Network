@@ -28,11 +28,19 @@ sensor.set_on_message(on_message)
 sensor.connect()
 sensor.start()
 
+step_increment = 1.0
+curr_temp = 10.0
+
 while running:
     time.sleep(5)
     sensor.update_status(json.dumps({'is_on': not stop}))
     if not stop:
-        sensor.send_data(json.dumps({'new_temp': 10.0, 'timestamp': datetime.datetime.now().timestamp()}))
+        sensor.send_data(json.dumps({'new_temp': curr_temp, 'timestamp': datetime.datetime.now().timestamp()}))
+        if curr_temp >= 30.0:
+            step_increment = -1.0
+        elif curr_temp <= 10.0:
+            step_increment = 1.0
+        curr_temp += step_increment
 
 sensor.stop()
 sensor.disconnect()

@@ -116,6 +116,8 @@ if __name__ == '__main__':
         add_sensor(server_url, 'H3', 'temp', 'third_room_temp')
         add_actuator(server_url, 'H2', 'heater', 'second_room_heater')
         add_controller(server_url, 'test_controller', 'test')
+
+        add_sensor(server_url, 'H3', 'seismic', 'seismic_sensor')
         
         app = QApplication(sys.argv)
         sensors = [('H1', 'first_room_temp'), ('H2', 'second_room_temp'), ('H3', 'third_room_temp')]
@@ -132,6 +134,7 @@ if __name__ == '__main__':
         print("Shutting down servers...")
 
         print(get_actuator_status(server_url, 'H2', 'second_room_heater'))
+        print(get_sensor_data(server_url, 'H3', 'seismic_sensor'))
 
         remove_all_sensors(server_url)
         remove_all_actuators(server_url)

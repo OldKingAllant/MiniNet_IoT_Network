@@ -15,7 +15,7 @@ def recv_message(controller: Controller, msg: MQTTMessage):
     if msg.topic == 'H1/first_room_temp':
         data = json.loads(content)
         temp = data['new_temp']
-        if temp >= 10.0:
+        if temp <= 15.0:
             print('Start heater', file=controller.log_file, flush=True)
             controller.send_control('H2/second_room_heater', 'START')
         else:
